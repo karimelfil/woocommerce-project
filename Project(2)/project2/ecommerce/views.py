@@ -335,28 +335,7 @@ def get_woocommerce_prices():
             print('Response content is not valid JSON:', response.content)
         return None
 
-def get_woocommerce_sku():
-    consumer_key = 'ck_b905c5395fbfee15c4683104e148918bb31f1739'
-    consumer_secret = 'cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b'
-    store_url = 'https://eldrapaints.com/wp-json/wc/v3/products'
-    
-    response = requests.get(store_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
-
-    if response.status_code == 200:
-        products = response.json()
-        sku_code = [{'id': product['id'], 'name': product['name'], 'sku_code': product['sku_code']} for product in products]
-        return sku_code
-    else:
-        print('Failed to fetch sku_code')
-        print('Status Code:', response.status_code)
-        print('Response Headers:', response.headers)
-        try:
-            print('Response:', response.json())
-        except ValueError:
-            print('Response content is not valid JSON:', response.content)
-        return None
-
-def create_woocommerce_item(name, slug, category_id, tags, price, sku_code):
+def create_woocommerce_item(name, slug, category_id, tags, price):
     consumer_key = 'ck_b905c5395fbfee15c4683104e148918bb31f1739'
     consumer_secret = 'cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b'
     store_url = 'https://eldrapaints.com/wp-json/wc/v3/products'
@@ -366,7 +345,6 @@ def create_woocommerce_item(name, slug, category_id, tags, price, sku_code):
         'slug': slug,
         'type': 'simple',
         'regular_price': str(price),
-        'sku': sku_code,
         'categories': [{'id': category_id}] if category_id else [],
         'tags': [{'id': tag['id']} for tag in tags] if tags else []
     }
@@ -708,7 +686,6 @@ def create_item(request, data: ItemCreate):
                     woocommerce_category_id, 
                     woocommerce_tags, 
                     woocommerce_price, 
-                    item.sku_code  # Pass SKU code to WooCommerce creation function
                 )
                 if woocommerce_item_id:
                     item.woocommerce_id = woocommerce_item_id
