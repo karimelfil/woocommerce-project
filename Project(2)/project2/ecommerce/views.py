@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from ecommerce.models import *
-from ninja import NinjaAPI
+from ninja import NinjaAPI , Path
 from .schemas import *
 from django.http import  JsonResponse  , HttpResponse 
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -120,27 +120,39 @@ def update_woocommerce_category(category_id, name, path):
             print('Response content is not valid JSON:', response.content)
         return None
 
-def delete_woocommerce_category(category_id, name, path):
-    url = f'https://eldrapaints.com/wp-json/wc/v3/products/categories/{category_id}?force=true'
+def delete_woocommerce_category(woocommerce_id):
     consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
     consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
-    data = {
-        'name': name,
-        'path': path
-    }
-    response = requests.delete(url, auth=HTTPBasicAuth(consumer_key, consumer_secret),json=data)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print('Failed to delete category')
-        print('Status Code:', response.status_code)
-        print('Response Headers:', response.headers)
-        try:
-            print('Response:', response.json())
-        except ValueError:
-            print('Response content is not valid JSON:', response.content)
-        return None
+    url = f'https://eldrapaints.com/wp-json/wc/v3/products/categories/{woocommerce_id}'
 
+    response = requests.delete(url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
+    
+    logging.debug(f"Request URL: {response.url}")
+    logging.debug(f"Request Headers: {response.request.headers}")
+    logging.debug(f"Response Status Code: {response.status_code}")
+    logging.debug(f"Response Headers: {response.headers}")
+    logging.debug(f"Response Content: {response.content}")
+
+    if response.status_code in [200, 201, 204]:
+        return True, None
+    else:
+        try:
+            error_message = response.json().get('message', 'Failed to delete WooCommerce category')
+        except ValueError:
+            error_message = 'Response content is not valid JSON'
+        
+        logging.error(f"Error deleting category in WooCommerce: {error_message}")
+        return False, error_message
+
+
+def delete_django_category(category_id):
+    try:
+        category = get_object_or_404(ItemCategory, id=category_id)
+        category.delete()
+        return True, None
+    except Exception as e:
+        logging.error(f"Error deleting category in Django: {str(e)}")
+        return False, str(e)
 
 def sync_categories():
     categories = ItemCategory.objects.all()
@@ -375,7 +387,7 @@ def update_woocommerce_item(woocommerce_item_id, name, slug, category_id, tags, 
         'slug': slug,
         'categories': [{'id': category_id}],
         'tags': [{'id': tag_id} for tag_id in tags],
-        'regular_price': str(price)  # Include the price
+        'regular_price': str(price)  
     }
 
     response = requests.put(store_url, auth=HTTPBasicAuth(consumer_key, consumer_secret), json=data)
@@ -392,6 +404,34 @@ def update_woocommerce_item(woocommerce_item_id, name, slug, category_id, tags, 
             print('Response content is not valid JSON:', response.content)
         return None
 
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+def delete_woocommerce_item(woocommerce_id):
+    consumer_key = 'ck_b905c5395fbfee15c4683104e148918bb31f1739'
+    consumer_secret = 'cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b'
+    store_url = f'https://eldrapaints.com/wp-json/wc/v3/products/{woocommerce_id}'
+
+    response = requests.delete(store_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
+
+    logging.debug(f"Request URL: {response.url}")
+    logging.debug(f"Request Headers: {response.request.headers}")
+    logging.debug(f"Response Status Code: {response.status_code}")
+    logging.debug(f"Response Headers: {response.headers}")
+    logging.debug(f"Response Content: {response.content}")
+
+    if response.status_code in [200, 201, 204]:
+        return True
+    else:
+        print('Failed to delete WooCommerce item')
+        print('Status Code:', response.status_code)
+        print('Response Headers:', response.headers)
+        try:
+            print('Response:', response.json())
+        except ValueError:
+            print('Response content is not valid JSON:', response.content)
+        return Fals
 
 
 #handle exceptions :
@@ -886,11 +926,11 @@ def delete_activity(request, activity_id: int):
 def update_category(request, category_id: int, payload: ItemCategoryIn):
     category = get_object_or_404(ItemCategory, id=category_id)
     
-    # Update fields except parent
+
     for attr, value in payload.dict(exclude={"parent"}).items():
         setattr(category, attr, value)
     
-    # Handle parent field separately
+
     if payload.parent:
         parent_category = get_object_or_404(ItemCategory, id=payload.parent)
         category.parentt = parent_category
@@ -918,30 +958,26 @@ def update_category(request, category_id: int, payload: ItemCategoryIn):
         woocommerce_id=category.woocommerce_id
     )
 
-@api.delete("/category/{category_id}/", response={200: SuccessResponse, 400: ErrorResponse, 500: ErrorResponse}, tags=["Category"])
-def delete_category(request, category_id: int):
-    category = get_object_or_404(ItemCategory, id=category_id)
-    
-    try:
-        delete_response = delete_woocommerce_category(category.woocommerce_id, category.name, category.path)
-        if delete_response is not None:
-                    print(f"Deleted WooCommerce category '{category.name}'")
-        else:
-            print(f"Failed to delete WooCommerce category '{category.name}'")
-            return JsonResponse({
-                'error': f"Failed to delete WooCommerce category '{category.name}'."
-            }, status=500)
-    except Exception as e:
-        print(f"Exception occurred: {str(e)}")
+@api.delete("/category/{category_id}/{woocommerce_id}/", tags=['Category'])
+def delete_category(request, category_id: int, woocommerce_id: int):
+    # Attempt to delete category in WooCommerce first
+    woocommerce_success, woocommerce_error = delete_woocommerce_category(woocommerce_id)
+    if not woocommerce_success:
         return JsonResponse({
-            'error': f"Error syncing with WooCommerce: {str(e)}"
-        }, status=500)
-        
-    category.delete()
-        
-    return JsonResponse({
-        'success': f"ItemCategory with ID {category_id} deleted successfully."
-    })
+            "success": False,
+            "message": f"Error deleting category in WooCommerce: {woocommerce_error}"
+        }, status=400)
+    
+    # Attempt to delete category in Django
+    django_success, django_error = delete_django_category(category_id)
+    if not django_success:
+        return JsonResponse({
+            "success": False,
+            "message": f"Error deleting category in Django: {django_error}"
+        }, status=400)
+    
+    return JsonResponse({"success": True})
+
     
 
 @api.put("/family/{family_id}/", response=ItemFamilyIn, tags=["Family"])
@@ -1274,7 +1310,7 @@ def update_item(request, item_id: int, data: ItemCreate):
                 setattr(item, field_name, rounded_value)
         item.save()
 
-        # Integrate with WooCommerce
+
         try:
             woocommerce_item_id = item.woocommerce_id
             if woocommerce_item_id:
@@ -1297,17 +1333,27 @@ def update_item(request, item_id: int, data: ItemCreate):
 
         return {"success": True, "item_id": item.id}
 
-    
+@api.delete("/items/{item_id}/{woocommerce_id}/", tags=['Item'])
+def delete_item(request, item_id: int = Path(...), woocommerce_id: int = Path(...)):
+    try:
+        if item_id:
+            item = get_object_or_404(Item, id=item_id)
+            with transaction.atomic():
+                item.delete()
 
-
-
-
-
-@api.delete("/Items/{item_id}/", response={204: None}, tags=["Item"])
-def delete_item(request, item_id: int):
-    item = get_object_or_404(Item, id=item_id)
-    item.delete()
-    return {"message": "Item deleted successfully"}
+        if woocommerce_id:
+            try:
+                success = delete_woocommerce_item(woocommerce_id)
+                if success:
+                    return {"success": True, "message": "Item deleted successfully"}
+                else:
+                    return {"success": False, "message": "Failed to delete item from WooCommerce"}
+            except Exception as e:
+                return {"success": False, "message": f"Error deleting item from WooCommerce: {str(e)}"}
+        else:
+            return {"success": True, "message": "Item deleted successfully from Django"}
+    except Exception as e:
+        return {"success": False, "message": f"Error deleting item: {str(e)}"}
 
 @api.get("/activity/{activity_id}/", response=ActivityIn, tags=["Activity"])
 def read_activity(request, activity_id: int):
@@ -1663,7 +1709,6 @@ def duplicate_woocommerce_product(request, item_id: int):
     consumer_secret = 'cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b'
     store_url = 'https://eldrapaints.com/wp-json/wc/v3/products/'
 
-    # Retrieve the item from the database
     item = get_object_or_404(Item, id=item_id)
     woocommerce_id = item.woocommerce_id
 
