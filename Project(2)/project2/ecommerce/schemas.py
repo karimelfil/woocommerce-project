@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field , EmailStr
 from datetime import datetime, time
 from typing import List, Optional
 from ninja import Schema
