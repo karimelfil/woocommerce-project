@@ -431,7 +431,7 @@ def delete_woocommerce_item(woocommerce_id):
             print('Response:', response.json())
         except ValueError:
             print('Response content is not valid JSON:', response.content)
-        return Fals
+        return False
 
 
 #handle exceptions :
@@ -713,7 +713,6 @@ def create_item(request, data: ItemCreate):
                 setattr(item, field_name, rounded_value)
         item.save()
 
-        # Integrate with WooCommerce
         try:
             existing_woocommerce_id = get_existing_woocommerce_item(item.name)
             woocommerce_category_id = item.category.woocommerce_id if item.category else None
@@ -960,7 +959,7 @@ def update_category(request, category_id: int, payload: ItemCategoryIn):
 
 @api.delete("/category/{category_id}/{woocommerce_id}/", tags=['Category'])
 def delete_category(request, category_id: int, woocommerce_id: int):
-    # Attempt to delete category in WooCommerce first
+
     woocommerce_success, woocommerce_error = delete_woocommerce_category(woocommerce_id)
     if not woocommerce_success:
         return JsonResponse({
@@ -968,7 +967,7 @@ def delete_category(request, category_id: int, woocommerce_id: int):
             "message": f"Error deleting category in WooCommerce: {woocommerce_error}"
         }, status=400)
     
-    # Attempt to delete category in Django
+
     django_success, django_error = delete_django_category(category_id)
     if not django_success:
         return JsonResponse({
@@ -1737,5 +1736,3 @@ def duplicate_woocommerce_product(request, item_id: int):
             'success': False,
             'error': f"Error duplicating product: {str(e)}"
         }
-    
-
