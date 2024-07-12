@@ -1782,3 +1782,40 @@ def duplicate_woocommerce_product(request, item_id: int):
             'success': False,
             'error': f"Error duplicating product: {str(e)}"
         }
+    
+@api.get("/integrations/", response=List[IntegrateOutt], tags=["Integration"])
+def list_integrations(request):
+    integrations = integrate.objects.all()
+    response = []
+
+    for integratee in integrations:
+        try:
+            warehouse = Warehouse.objects.get(integrate_id=integratee.id)  # Assuming there's a FK integrate_id in Warehouse
+            warehouse_data = WarehouseOut(
+                id=warehouse.id,
+                name=warehouse.name,
+                country=warehouse.country,
+                city=warehouse.city,
+                address=warehouse.address,
+                branch=warehouse.branch,
+                initial_data=warehouse.initial_Data,
+                default=warehouse.default,
+                show_room=warehouse.show_room
+            )
+        except Warehouse.DoesNotExist:
+            warehouse_data = None
+
+        response.append(
+            IntegrateOutt(
+                id=integratee.id,
+                type=integratee.type,
+                consumer_key=integratee.consumer_key,
+                secret_key=integratee.secret_key,
+                active=integratee.active,
+                warehouse=warehouse_data
+            )
+        )
+
+    return response
+
+
