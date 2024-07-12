@@ -27,19 +27,22 @@ class ItemCategoryOut(BaseModel):
     parent :Optional[int] = None
     woocommerce_id :int
    
-
 class ItemFamilyIn(BaseModel):
     name: str
     woocommerce_id :int
+
 class ItemFamilyOut(BaseModel):
     name: str
     woocommerce_id :int
+
 class ItemBrandIn(BaseModel):
     name: str
     woocommerce_id :int
+
 class ItemBrandOut(BaseModel):
     name: str
     woocommerce_id :int
+
 class SpecsIn(BaseModel):
     description: str
     woocommerce_id :int
@@ -222,8 +225,6 @@ class ItemPackageOut(BaseModel):
     quantity: float
     barcode: str
 
-
-
 class ItemsWarehouseIn(BaseModel):
     warehouse_id: int
     item_id: int  
@@ -266,7 +267,6 @@ class IntegrateIn(BaseModel):
 
 class IntegrateOut(IntegrateIn):
     id: int
-
 
 class IntegrateOutt(IntegrateIn):
     id: int
@@ -327,7 +327,6 @@ class ItemOut(BaseModel):
 
     class Config:
         from_attributes = True  
-
 
 class SuccessResponse(Schema):
     success: bool
