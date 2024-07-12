@@ -222,25 +222,7 @@ class ItemPackageOut(BaseModel):
     quantity: float
     barcode: str
 
-class WarehouseIn(BaseModel):
-    name: str
-    country: str
-    city: str
-    address: str
-    branch: int
-    initial_data: bool
-    default: bool
-    show_room:bool
 
-class WarehouseOut(BaseModel):
-    name: str
-    country: str
-    city: str
-    address: str
-    branch: int
-    initial_data: bool
-    default: bool
-    show_room:bool
 
 class ItemsWarehouseIn(BaseModel):
     warehouse_id: int
@@ -262,19 +244,28 @@ class ItemsWarehouseOut(BaseModel):
     opening: bool
     opening_quantity: int
 
-class integrateIn(BaseModel):
-    type : str
-    consumer_key : str
-    secret_key : str 
-    active : bool 
-    description: str
+class WarehouseIn(BaseModel):
+    name: str
+    country: str
+    city: str
+    address: str
+    branch: int
+    initial_data: bool
+    default: bool
+    show_room: bool
 
-class integrateOut(BaseModel):
-    type : str
-    consumer_key : str
-    secret_key : str 
-    active : bool
-    description: str
+class WarehouseOut(WarehouseIn):
+    id: int
+
+class IntegrateIn(BaseModel):
+    type: str
+    consumer_key: str
+    secret_key: str
+    active: bool
+    warehouse: WarehouseIn
+
+class IntegrateOut(IntegrateIn):
+    id: int
 
 class ItemOut(BaseModel):
     name: str

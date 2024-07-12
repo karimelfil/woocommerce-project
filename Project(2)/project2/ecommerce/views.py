@@ -785,33 +785,6 @@ def create_item_package(request, payload: ItemPackageIn):
     except Exception as e:
         return handle_exception(e)
 
-@api.post("/warehouses/", response=WarehouseIn, tags=['Warehouses'])
-def create_warehouse(request, payload: WarehouseIn):
-    try:
-        warehouse = Warehouse.objects.create(
-            name=payload.name,
-            country=payload.country,
-            city=payload.city,
-            address=payload.address,
-            branch=payload.branch,
-            initial_Data=payload.initial_data,  
-            default=payload.default,
-            show_room=payload.show_room
-        )
-
-        return WarehouseIn(
-            name=warehouse.name,
-            country=warehouse.country,
-            city=warehouse.city,
-            address=warehouse.address,
-            branch=warehouse.branch,
-            initial_data=warehouse.initial_Data,  
-            default=warehouse.default,
-            show_room=warehouse.show_room
-        )
-    except Exception as e:
-        return handle_exception(e)
-
 @api.post("/items-warehouses/", response=ItemsWarehouseIn, tags=["Items Warehouses"])
 def create_items_warehouse(request, payload: ItemsWarehouseIn):
     try:
@@ -842,66 +815,165 @@ def create_items_warehouse(request, payload: ItemsWarehouseIn):
     except Exception as e:
         return handle_exception(e)
     
-@api.post("/integration/",response=integrateIn,tags=["Integration"])
-def create_integration(request,payload : integrateIn):
+@api.post("/integration/", response=IntegrateIn, tags=["Integration"])
+def create_integration(request, payload: IntegrateIn):
     try:
-        integratee=integrate.objects.create(
-            type=payload.type,
-            consumer_key=payload.consumer_key,
-            secret_key=payload.secret_key,
-            active=payload.active,
-            description=payload.description
-        )
-        return integrateIn(
+        with transaction.atomic():
+            # Create the integration
+            integratee = integrate.objects.create(
+                type=payload.type,
+                consumer_key=payload.consumer_key,
+                secret_key=payload.secret_key,
+                active=payload.active,
+            )
+
+            # Create the warehouse using the provided data
+            warehouse_data = payload.warehouse
+            warehouse = Warehouse.objects.create(
+                name=warehouse_data.name,
+                country=warehouse_data.country,
+                city=warehouse_data.city,
+                address=warehouse_data.address,
+                branch=warehouse_data.branch,
+                initial_Data=warehouse_data.initial_data,
+                default=warehouse_data.default,
+                show_room=warehouse_data.show_room,
+            )
+
+            return IntegrateIn(
+                type=integratee.type,
+                consumer_key=integratee.consumer_key,
+                secret_key=integratee.secret_key,
+                active=integratee.active,
+                warehouse=WarehouseIn(
+                    name=warehouse.name,
+                    country=warehouse.country,
+                    city=warehouse.city,
+                    address=warehouse.address,
+                    branch=warehouse.branch,
+                    initial_data=warehouse.initial_Data,
+                    default=warehouse.default,
+                    show_room=warehouse.show_room
+                )
+            )
+    except Exception as e:
+        print(type(e))
+        return handle_exception(e)
+
+@api.delete("/integration/{integration_id}/", tags=["Integration"])
+def delete_integration(request, integration_id: int):
+    try:
+        with transaction.atomic():
+            integratee = get_object_or_404(integrate, id=integration_id)
+            Warehouse.objects.filter(integrate=integratee).delete()
+            integratee.delete()
+            return {"success": True}
+    except Exception as e:
+        print(type(e))
+        return handle_exception(e)
+
+
+@api.put("/integration/{integration_id}/", response=IntegrateOut, tags=["Integration"])
+def update_integration(request, integration_id: int, payload: IntegrateIn):
+    try:
+        with transaction.atomic():
+            integratee = get_object_or_404(integrate, id=integration_id)
+
+            # Update integration fields
+            integratee.type = payload.type
+            integratee.consumer_key = payload.consumer_key
+            integratee.secret_key = payload.secret_key
+            integratee.active = payload.active
+            integratee.save()
+
+
+            if payload.warehouse:
+                warehouse_data = payload.warehouse
+
+
+                warehouse, created = Warehouse.objects.get_or_create(
+                    integrate=integratee,
+                    defaults={
+                        'name': warehouse_data.name,
+                        'country': warehouse_data.country,
+                        'city': warehouse_data.city,
+                        'address': warehouse_data.address,
+                        'branch': warehouse_data.branch,
+                        'initial_Data': warehouse_data.initial_data,
+                        'default': warehouse_data.default,
+                        'show_room': warehouse_data.show_room,
+                    }
+                )
+
+
+                if not created:
+                    warehouse.name = warehouse_data.name
+                    warehouse.country = warehouse_data.country
+                    warehouse.city = warehouse_data.city
+                    warehouse.address = warehouse_data.address
+                    warehouse.branch = warehouse_data.branch
+                    warehouse.initial_Data = warehouse_data.initial_data
+                    warehouse.default = warehouse_data.default
+                    warehouse.show_room = warehouse_data.show_room
+                    warehouse.save()
+
+
+            updated_integration = integrate.objects.get(id=integratee.id)
+
+
+            return IntegrateOut(
+                id=updated_integration.id,
+                type=updated_integration.type,
+                consumer_key=updated_integration.consumer_key,
+                secret_key=updated_integration.secret_key,
+                active=updated_integration.active,
+                warehouse=WarehouseIn(
+                    name=warehouse.name,
+                    country=warehouse.country,
+                    city=warehouse.city,
+                    address=warehouse.address,
+                    branch=warehouse.branch,
+                    initial_data=warehouse.initial_Data,
+                    default=warehouse.default,
+                    show_room=warehouse.show_room
+                ) if warehouse else None  
+            )
+
+    except Exception as e:
+        print(type(e))
+        return handle_exception(e)
+
+@api.get("/integration/{integration_id}/", response=IntegrateOut, tags=["Integration"])
+def read_integration(request, integration_id: int):
+    try:
+        integratee = get_object_or_404(integrate, id=integration_id)
+
+   
+        warehouse = Warehouse.objects.filter(integrate=integratee).first()
+
+
+        return IntegrateOut(
+            id=integratee.id,
             type=integratee.type,
             consumer_key=integratee.consumer_key,
             secret_key=integratee.secret_key,
             active=integratee.active,
-            description=integratee.description
+            warehouse=WarehouseIn(
+                name=warehouse.name,
+                country=warehouse.country,
+                city=warehouse.city,
+                address=warehouse.address,
+                branch=warehouse.branch,
+                initial_data=warehouse.initial_Data,
+                default=warehouse.default,
+                show_room=warehouse.show_room
+            ) if warehouse else None  
         )
+
     except Exception as e:
+        print(type(e))
         return handle_exception(e)
 
-@api.delete("/integration/{integration_id}/",response=integrateIn,tags=["Integration"])
-def delete_integration(request, integration_id : int):
-    integrationn = integrate.objects.filter(id=integration_id).first()
-    if not integrationn :
-        return HttpResponse(status=404)
-    
-    integrationn.delete()
-    return {"message": "Integrationd deleted successfully"}
-
-@api.put("/integration/{integration_id}/",response=integrateIn,tags=["Integration"])
-def update_integrate(request,integration_id : int , payload : integrateIn):
-    integratee=get_object_or_404(integrate,id=integration_id)
-    integratee.type=payload.type
-    integratee.consumer_key=payload.consumer_key
-    integratee.secret_key=payload.secret_key
-    integratee.active=payload.active
-    integratee.description=payload.description
-
-
-    return integrateIn(
-        type=integratee.type,
-        consumer_key=integratee.consumer_key,
-        secret_key=integratee.secret_key,
-        active=integratee.active,
-        description=integratee.description,
-    )
-
-@api.get("/integration/{integration_id}/",response=integrateIn,tags=["Integration"])
-def read_integration(request,integration_id : int):
-    try:
-        integration=get_object_or_404(integrate,id=integration_id)
-        return integrateIn(
-            type=integration.type,
-            consumer_key=integration.consumer_key,
-            secret_key=integration.secret_key,
-            active=integration.active,
-            description=integration.description,
-        )
-    except Exception as e :
-        return handle_exception(e)
 
 @api.put("/activity/{activity_id}/", response=ActivityIn, tags=["Activity"])
 def update_activity(request, activity_id: int, payload: ActivityIn):
@@ -1574,29 +1646,7 @@ def update_item_package(request, item_package_id: int, payload: ItemPackageIn):
         barcode=item_package.barcode
     )
 
-@api.put("/warehouses/{warehouse_id}/", response=WarehouseIn, tags=["Warehouses"])
-def update_warehouse(request, warehouse_id: int, payload: WarehouseIn):
-    warehouse = Warehouse.objects.get(id=warehouse_id)
-    warehouse.name = payload.name
-    warehouse.country = payload.country
-    warehouse.city = payload.city
-    warehouse.address = payload.address
-    warehouse.branch = payload.branch
-    warehouse.initial_Data = payload.initial_data
-    warehouse.default = payload.default
-    warehouse.show_room = payload.show_room
-    warehouse.save()
 
-    return WarehouseIn(
-        name=warehouse.name,
-        country=warehouse.country,
-        city=warehouse.city,
-        address=warehouse.address,
-        branch=warehouse.branch,
-        initial_data=warehouse.initial_Data,  
-        default=warehouse.default,
-        show_room=warehouse.show_room
-    )
 
 @api.put("/items-warehouses/{items_warehouse_id}/", response=ItemsWarehouseIn, tags=["Items Warehouses"])
 def update_items_warehouse(request, items_warehouse_id: int, payload: ItemsWarehouseIn):
@@ -1632,11 +1682,7 @@ def delete_item_package(request, item_package_id: int):
     item_package.delete()
     return {"message": "Item Package deleted successfully"}
 
-@api.delete("/warehouses/{warehouse_id}/", tags=["Warehouses"])
-def delete_warehouse(request, warehouse_id: int):
-    warehouse = Warehouse.objects.get(id=warehouse_id)
-    warehouse.delete()
-    return {"message": "Warehouse deleted successfully"}
+
 
 @api.delete("/items-warehouses/{items_warehouse_id}/", tags=["Items Warehouses"])
 def delete_items_warehouse(request, items_warehouse_id: int):

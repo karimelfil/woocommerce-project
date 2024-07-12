@@ -353,7 +353,13 @@ class ItemPackage(Activity):
     #     verbose_name = "item_package"
     #     db_table  = "item_package"
 
-
+class integrate(models.Model):
+    type=models.CharField(max_length=255,default="default value",unique=True)
+    consumer_key=models.CharField(max_length=1000,default="default value")
+    secret_key=models.CharField(max_length=1000,default="default value")
+    active = models.BooleanField(default=False)
+    class Meta:
+        default_permissions = ()
 
 class Warehouse(Activity):
     name = models.CharField(max_length=255)
@@ -365,6 +371,7 @@ class Warehouse(Activity):
     initial_Data = models.BooleanField(default=False)
     default = models.BooleanField(default=False)
     show_room = models.BooleanField(default=False, db_default=False)
+    integrate = models.ForeignKey('integrate', on_delete=models.CASCADE,default="default value")
 
     class Meta:
         unique_together = ("branch", "name")
@@ -415,11 +422,4 @@ class Itemswarehouse(Activity):
         default_permissions = ()
 
 
-class integrate(models.Model):
-    type=models.CharField(max_length=255,default="default value")
-    consumer_key=models.CharField(max_length=1000,default="default value")
-    secret_key=models.CharField(max_length=1000,default="default value")
-    active = models.BooleanField(default=False)
-    description = models.CharField(max_length=100,default="default value")
-    class Meta:
-        default_permissions = ()
+
