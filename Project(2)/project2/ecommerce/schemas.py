@@ -267,6 +267,11 @@ class IntegrateIn(BaseModel):
 class IntegrateOut(IntegrateIn):
     id: int
 
+
+class IntegrateOutt(IntegrateIn):
+    id: int
+    warehouse: Optional[WarehouseOut] = None
+
 class ItemOut(BaseModel):
     name: str
     active: bool
