@@ -64,7 +64,7 @@ class ItemCategory(MP_Node, Activity):
 
     def __str__(self):
         return self.name
-
+    
 class ItemFamily(Activity):
     name = models.CharField(max_length=255, unique=True)
     woocommerce_id=models.IntegerField(default=0)
@@ -389,3 +389,128 @@ class Itemswarehouse(Activity):
     class Meta:
         unique_together = ("item", "branch", "warehouse")
         default_permissions = ()
+
+
+
+#############################################################################################
+
+
+### customers models :
+
+class BillingAddress(models.Model):
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    company = models.CharField(max_length=255, null=True, blank=True)
+    address_1 = models.CharField(max_length=255)
+    address_2 = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=255)
+    state = models.CharField(max_length=255)
+    postcode = models.CharField(max_length=20)
+    country = models.CharField(max_length=250)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Billing"
+        db_table = "Billing"
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}, {self.address_1}, {self.city}"
+
+
+class ShippingAddress(models.Model):
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    company = models.CharField(max_length=255, null=True, blank=True)
+    address_1 = models.CharField(max_length=255)
+    address_2 = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=255)
+    state = models.CharField(max_length=255)
+    postcode = models.CharField(max_length=20)
+    country = models.CharField(max_length=250)
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Shipping"
+        db_table = "Shipping"
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}, {self.address_1}, {self.city}"
+
+class Customer(Activity):
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=255, null=True, blank=True)
+    last_name = models.CharField(max_length=255, null=True, blank=True)
+    role = models.CharField(max_length=255)
+    username = models.CharField(max_length=255, unique=True)
+    password = models.CharField(max_length=255)
+    is_paying_customer = models.BooleanField(default=False)
+    avatar_url = models.URLField(null=True, blank=True)
+    customerbiling_id=models.ForeignKey(BillingAddress,on_delete=models.CASCADE,related_name='Customer')
+    customershipping_id=models.ForeignKey(ShippingAddress,on_delete=models.CASCADE,related_name='Customer')
+    woocommerce_id=models.IntegerField(null=True)   
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Customer"
+        db_table = "Customer"
+
+
+    def __str__(self):
+        return self.email
+    
+
+
+
+
+class Order(Activity):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('on-hold', 'On-Hold'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+        ('failed', 'Failed'),
+        ('trash', 'Trash'),
+    ]
+    CURRENCY_CHOICES = [(currency, currency) for currency in [
+        'AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTC', 'BTN', 'BWP', 'BYR', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY', 'COP', 'CRC', 'CUC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD', 'FKP', 'GBP', 'GEL', 'GGP', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HRK', 'HTG', 'HUF', 'IDR', 'ILS', 'IMP', 'INR', 'IQD', 'IRR', 'IRT', 'ISK', 'JEP', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW', 'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK', 'MNT', 'MOP', 'MRO', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR', 'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PRB', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF', 'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLL', 'SOS', 'SRD', 'SSP', 'STD', 'SYP', 'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD', 'UYU', 'UZS', 'VEF', 'VND', 'VUV', 'WST', 'XAF', 'XCD', 'XOF', 'XPF', 'YER', 'ZAR', 'ZMW'
+    ]]
+    parent_id = models.IntegerField(null=True, blank=True)
+    number = models.CharField(max_length=255, unique=True)
+    order_key = models.CharField(max_length=255)
+    created_via = models.CharField(max_length=255)
+    version = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    currency = models.CharField(max_length=50, choices=CURRENCY_CHOICES, default='USD')
+    discount_total = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_tax = models.DecimalField(max_digits=10, decimal_places=2)
+    shipping_total = models.DecimalField(max_digits=10, decimal_places=2)
+    shipping_tax = models.DecimalField(max_digits=10, decimal_places=2)
+    cart_tax = models.DecimalField(max_digits=10, decimal_places=2)
+    total = models.DecimalField(max_digits=10, decimal_places=2)
+    total_tax = models.DecimalField(max_digits=10, decimal_places=2)
+    prices_include_tax = models.BooleanField(default=False)
+    customer_id = models.ForeignKey(Customer,on_delete=models.CASCADE,related_name='ORDER')
+    payment_method = models.CharField(max_length=255)
+    date_paid = models.DateTimeField(null=True, blank=True)
+    date_completed = models.DateTimeField(null=True, blank=True)
+    cart_hash = models.CharField(max_length=255)
+    set_paid = models.BooleanField(default=True)
+    customerbiling_id=models.ForeignKey(BillingAddress,on_delete=models.CASCADE,related_name='ORDER')
+    customershipping_id=models.ForeignKey(ShippingAddress,on_delete=models.CASCADE,related_name='ORDER')
+    woocommerce_id=models.IntegerField(null=True)
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Order"
+        db_table = "Order"
+
+    def __str__(self):
+        return self.number
+
+
+
+
+
+
+
+
+
