@@ -11,8 +11,12 @@ from django.db import IntegrityError
 from requests.auth import HTTPBasicAuth
 from django.conf import settings
 import logging
+logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 api = NinjaAPI()
+#Convert datetime to string :
+def convert_datetime_to_string(dt: Optional[datetime]) -> Optional[str]:
+    return dt.isoformat() if dt else None
 
 #Woocommerce Integration Functions : 
 
@@ -38,7 +42,7 @@ def create_woocommerce_category(name, slug):
         except ValueError:
             print('Response content is not valid JSON:', response.content)
         return None
-    
+
 def create_woocommerce_tags(name, slug):
     url = 'https://eldrapaints.com/wp-json/wc/v3/products/tags'
     consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
@@ -62,17 +66,56 @@ def create_woocommerce_tags(name, slug):
             print('Response content is not valid JSON:', response.content)
         return None
     
-def sync_tags():
-    tags = Tags.objects.all()
+def create_woocommerce_customer(name, email):
+    url = 'https://eldrapaints.com/wp-json/wc/v3/customers'
+    consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
+    consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
+    
+    data = {
+        'email': email,
+        'first_name': name,
+        'username': email, 
+        'password': 'password123'  
+    }
 
-    for tag in tags:
-        woocommerce_tag_id = create_woocommerce_tags(tag.name, tag.name.lower().replace(' ', '-'))
-        if woocommerce_tag_id:
-            tag.woocommerce_id=woocommerce_tag_id
-            tag.save()
-            print(f"Woocommerce Tag created:'{tag.name}' with ID {woocommerce_tag_id}")
-        else:
-            print(f"Failed to create WooCommerce tag for  '{tag.name}' ")
+    response = requests.post(url, auth=HTTPBasicAuth(consumer_key, consumer_secret), json=data)
+    if response.status_code == 201:
+        return response.json()['id']
+    else:
+        print('Failed to create WooCommerce customer')
+        print('Status Code:', response.status_code)
+        print('Response Headers:', response.headers)
+        try:
+            print('Response:', response.json())
+        except ValueError:
+            print('Response content is not valid JSON:', response.content)
+        return None
+
+def update_woocommerce_customer(customer_id, name, email):
+    url = f'https://eldrapaints.com/wp-json/wc/v3/customers/{customer_id}'
+    consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
+    consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
+
+    data = {
+        'email': email,
+        'first_name': name,
+        'username' : email
+    }
+
+    try:
+        response = requests.put(
+            url,
+            auth=HTTPBasicAuth(consumer_key, consumer_secret),
+            json=data
+        )
+        response.raise_for_status()
+        return True  
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}")
+        return False  
+    except requests.exceptions.RequestException as err:
+        print(f"An error occurred: {err}")
+        return False  
 
 def update_woocommerce_tag(tag_id, name):
     url = f'https://eldrapaints.com/wp-json/wc/v3/products/tags/{tag_id}'
@@ -154,18 +197,6 @@ def delete_django_category(category_id):
         logging.error(f"Error deleting category in Django: {str(e)}")
         return False, str(e)
 
-def sync_categories():
-    categories = ItemCategory.objects.all()
-
-    for category in categories:
-        woocommerce_category_id = create_woocommerce_category(category.name, category.name.lower().replace(' ', '-'))
-        if woocommerce_category_id:
-            category.woocommerce_id = woocommerce_category_id
-            category.save()
-            print(f"Created WooCommerce category '{category.name}' with ID {woocommerce_category_id}")
-        else:
-            print(f"Failed to create WooCommerce category for '{category.name}'")
-
 def sync_categories_update():
     categories = ItemCategory.objects.all()
 
@@ -205,27 +236,7 @@ def create_woocommerce_attrubites(name, slug):
             print('Response content is not valid JSON:', response.content)
         return None
     
-def sync_family():
-    attributes = ItemFamily.objects.all()
 
-    for attribute in attributes:
-        woocommerce_attrubites_id = create_woocommerce_attrubites(attribute.name, attribute.name.lower().replace(' ', '-'))
-        if woocommerce_attrubites_id:
-            attribute.woocommerce_id=woocommerce_attrubites_id
-            attribute.save()
-            print(f"Created WooCommerce family '{attribute.name}' with ID {woocommerce_attrubites_id}")
-
-def sync_brand():
-    attributes = ItemBrand.objects.all()
-
-    for attribute in attributes:
-        woocommerce_attrubites_id = create_woocommerce_attrubites(attribute.name, attribute.name.lower().replace(' ', '-'))
-        if woocommerce_attrubites_id:
-            attribute.woocommerce_id=woocommerce_attrubites_id
-            attribute.save()
-            print(f"Created WooCommerce brand '{attribute.name}' with ID {woocommerce_attrubites_id}")
-
-def sync_specs():
     attributes = Specs.objects.all()
 
     for attribute in attributes:
@@ -258,27 +269,7 @@ def update_woocommerce_attributes(category_id, name):
             print('Response content is not valid JSON:', response.content)
         return None
 
-def sync_variationheader():
-    attributes = VariationsHeader.objects.all()
 
-    for attribute in attributes:
-        woocommerce_attrubites_id = create_woocommerce_attrubites(attribute.attribute, attribute.attribute.lower().replace(' ', '-'))
-        if woocommerce_attrubites_id:
-            attribute.woocommerce_id=woocommerce_attrubites_id
-            attribute.save()
-            print(f"Created WooCommerce VariationsHeader '{attribute.attribute}' with ID {woocommerce_attrubites_id}")
-
-def sync_unit():
-    attributes = UnitOfMeasurment.objects.all()
-
-    for attribute in attributes:
-        woocommerce_attrubites_id = create_woocommerce_attrubites(attribute.name, attribute.name.lower().replace(' ', '-'))
-        if woocommerce_attrubites_id:
-            attribute.woocommerce_id=woocommerce_attrubites_id
-            attribute.save()
-            print(f"Created WooCommerce unit '{attribute.name}' with ID {woocommerce_attrubites_id}")
-
-def sync_variationsdetail():
     attributes = VariationsDetail.objects.all()
 
     for attribute in attributes:
@@ -423,7 +414,80 @@ def delete_woocommerce_item(woocommerce_id):
             print('Response content is not valid JSON:', response.content)
         return False
 
+def update_woocommerce_order(order_id,number):
+    url = f'https://eldrapaints.com/wp-json/wc/v3/orders/{order_id}'
+    consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
+    consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
+
+    data = {
+                'number' : number  ,
+
+    }
+
+    try:
+        response = requests.put(
+            url,
+            auth=HTTPBasicAuth(consumer_key, consumer_secret),
+            json=data
+        )
+        response.raise_for_status()
+        return True  
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}")
+        return False  
+    except requests.exceptions.RequestException as err:
+        print(f"An error occurred: {err}")
+        return False  
+
+def create_woocommerce_order(number,status,total):
+    url = 'https://eldrapaints.com/wp-json/wc/v3/orders'
+    consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
+    consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
+    
+    data = {
+        'number' : number  ,
+        'status':status ,
+        'total': total
+    }
+
+    response = requests.post(url, auth=HTTPBasicAuth(consumer_key, consumer_secret), json=data)
+    if response.status_code == 201:
+        return response.json()['id']
+    else:
+        print('Failed to create WooCommerce orders')
+        print('Status Code:', response.status_code)
+        print('Response Headers:', response.headers)
+        try:
+            print('Response:', response.json())
+        except ValueError:
+            print('Response content is not valid JSON:', response.content)
+        return None
+
+def delete_woocommerce_order(order_id):
+    url = f'https://eldrapaints.com/wp-json/wc/v3/orders/{order_id}'
+    consumer_key = "ck_b905c5395fbfee15c4683104e148918bb31f1739"
+    consumer_secret = "cs_a31a9e81dface34df2e367fb45b45ef39f0fa81b"
+
+    try:
+        response = requests.delete(
+            url,
+            auth=HTTPBasicAuth(consumer_key, consumer_secret)
+        )
+        response.raise_for_status()
+        print(f"DELETE request status code: {response.status_code}")
+        print(f"DELETE request response: {response.text}")  # Print the response content for debugging
+        return True
+
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}")
+        return False
+
+    except requests.exceptions.RequestException as err:
+        print(f"An error occurred: {err}")
+        return False
+
 #Handle Exceptions :
+
 
 def handle_exception(e):
     if isinstance(e, ObjectDoesNotExist):
@@ -501,7 +565,13 @@ def create_category(request, payload: ItemCategoryIn):
             category.save()
 
         try:
-            sync_categories()
+            woocommerce_category_id = create_woocommerce_category(category.name, category.name.lower().replace(' ', '-'))
+            if woocommerce_category_id:
+                category.woocommerce_id = woocommerce_category_id
+                category.save()
+                print(f"Created WooCommerce category '{category.name}' with ID {woocommerce_category_id}")
+            else:
+                print(f"Failed to create WooCommerce category for '{category.name}'")
         except Exception as e:
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -613,6 +683,27 @@ def read_category(request, category_id: int):
         woocommerce_id=category.woocommerce_id,
     )
 
+@api.get("/category/parents/{name}", response=List[ItemCategoryOut],tags=['Category'])
+def get_parent_categories(request, name: str):
+    category = get_object_or_404(ItemCategory, name=name)
+    parents = []
+    parent = category.parentt
+    while parent:
+        parents.append(parent)
+        parent = parent.parentt
+
+    parent_categories = [
+        ItemCategoryOut(
+            name=parent.name,
+            image=parent.image.url if parent.image else None,
+            path=str(parent.path),
+            parent=parent.parentt.id if parent.parentt else None,
+            woocommerce_id=parent.woocommerce_id
+        ) for parent in parents
+    ]
+    
+    return parent_categories
+
 #Family :
 
 @api.post("/family/", response=ItemFamilyIn, tags=["Family"])
@@ -622,7 +713,13 @@ def create_family(request,payload: ItemFamilyIn):
             name=payload.name,
         )
         try:
-            sync_family()
+            woocommerce_family_id=create_woocommerce_attrubites(family.name,family.name.lower().replace(' ', '-'))
+            if woocommerce_family_id:
+                family.woocommerce_id = woocommerce_family_id
+                family.save()
+                print(f"Created WooCommerce family '{family.name}' with ID {woocommerce_family_id}")
+            else:
+                print(f"Failed to create WooCommerce family for '{family.name}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -681,7 +778,13 @@ def create_brand(request,payload: ItemBrandIn):
             name=payload.name,
         )
         try:
-            sync_brand()
+            woocommerce_brand_id=create_woocommerce_attrubites(brand.name,brand.name.lower().replace(' ', '-'))
+            if woocommerce_brand_id:
+                brand.woocommerce_id = woocommerce_brand_id
+                brand.save()
+                print(f"Created WooCommerce brand '{brand.name}' with ID {woocommerce_brand_id}")
+            else:
+                print(f"Failed to create WooCommerce brand for '{brand.name}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -741,13 +844,21 @@ def create_specs(request,payload: SpecsIn):
             description=payload.description,
         )
         try:
-            sync_specs()
+            woocommerce_specs_id=create_woocommerce_attrubites(specs.description,specs.description.lower().replace(' ', '-'))
+            if woocommerce_specs_id:
+                specs.woocommerce_id = woocommerce_specs_id
+                specs.save()
+                print(f"Created WooCommerce specs '{specs.description}' with ID {woocommerce_specs_id}")
+            else:
+                print(f"Failed to create WooCommerce specs for '{specs.description}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
                 }, status=500)
         return JsonResponse({
             'description': specs.description,
+            'woo_id' : specs.woocommerce_id,
+            
             })
     except Exception as e:
         return handle_exception(e)
@@ -803,7 +914,13 @@ def create_unitmeasurments(request,payload: UnitOfMeasurementIn):
                 type=payload.type
         )
         try:
-            sync_unit()
+            woocommerce_unitmeasurments_id=create_woocommerce_attrubites(unitmeasurments.name,unitmeasurments.name.lower().replace(' ', '-'))
+            if woocommerce_unitmeasurments_id:
+                unitmeasurments.woocommerce_id = woocommerce_unitmeasurments_id
+                unitmeasurments.save()
+                print(f"Created WooCommerce unitmeasurments '{unitmeasurments.name}' with ID {woocommerce_unitmeasurments_id}")
+            else:
+                print(f"Failed to create WooCommerce unitmeasurments for '{unitmeasurments.name}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -878,7 +995,13 @@ def create_tags(request,payload: TagsIn):
                 name=payload.name,
         )
         try:
-            sync_tags()
+            woocommerce_tags_id=create_woocommerce_attrubites(tags.name,tags.name.lower().replace(' ', '-'))
+            if woocommerce_tags_id:
+                tags.woocommerce_id = woocommerce_tags_id
+                tags.save()
+                print(f"Created WooCommerce tags '{tags.name}' with ID {woocommerce_tags_id}")
+            else:
+                print(f"Failed to create WooCommerce tags for '{tags.name}'")
         except Exception as e :
                         return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -939,7 +1062,13 @@ def create_VariationsHeader(request,payload: VariationsHeaderIn):
         attribute=payload.attribute,
         )
         try:
-            sync_variationheader()
+            woocommerce_VariationsHeaderr_id=create_woocommerce_attrubites(VariationsHeaderr.attribute,VariationsHeaderr.attribute.lower().replace(' ', '-'))
+            if woocommerce_VariationsHeaderr_id:
+                VariationsHeaderr.woocommerce_id = woocommerce_VariationsHeaderr_id
+                VariationsHeaderr.save()
+                print(f"Created WooCommerce VariationsHeaderr '{VariationsHeaderr.attribute}' with ID {woocommerce_VariationsHeaderr_id}")
+            else:
+                print(f"Failed to create WooCommerce VariationsHeaderr for '{VariationsHeaderr.attribute}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -960,7 +1089,13 @@ def create_VariationsDetail(request,payload: VariationsDetailIn):
 
         )
         try:
-            sync_variationsdetail()
+            woocommerce_VariationsDetaill_id=create_woocommerce_attrubites(VariationsDetaill.value,VariationsDetaill.value.lower().replace(' ', '-'))
+            if woocommerce_VariationsDetaill_id:
+                VariationsDetaill.woocommerce_id = woocommerce_VariationsDetaill_id
+                VariationsDetaill.save()
+                print(f"Created WooCommerce VariationsDetaill '{VariationsDetaill.value}' with ID {woocommerce_VariationsDetaill_id}")
+            else:
+                print(f"Failed to create WooCommerce VariationsDetaill for '{VariationsDetaill.value}'")
         except Exception as e :
             return JsonResponse({
                 'error': f"Error syncing with WooCommerce: {str(e)}"
@@ -1961,3 +2096,609 @@ def list_warehouses(request):
         for warehouse in warehouses
     ]
     return warehouse_data
+
+
+###############################################################################
+
+#Billing address:
+@api.post("/billing/",response=BillingAddressIn,tags=["Billing address"])
+def create_billing_address(request , payload:BillingAddressIn):
+    try:
+            billing=BillingAddress.objects.create(
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+                company=payload.company,
+                address_1=payload.address_1,
+                address_2=payload.address_2,
+                state=payload.state,
+                postcode=payload.postcode,
+                phone=payload.phone,
+                email=payload.email,
+                country=payload.country,
+                city=payload.city,
+            )
+            return BillingAddressIn(
+                first_name=billing.first_name,
+                last_name=billing.last_name,
+                company=billing.company,
+                address_1=billing.address_1,
+                address_2=billing.address_2,
+                state=billing.state,
+                city=billing.city,
+                postcode=billing.postcode,
+                phone=billing.phone,
+                email=billing.email,
+                country=billing.country,
+            )
+    except Exception as e:
+        return handle_exception(e)
+
+@api.put("/billing/{billing_id}/", response=BillingAddressIn, tags=["Billing address"])
+def update_billing(request, billing_id: int, payload: BillingAddressIn):
+    billing = get_object_or_404(BillingAddress, id=billing_id)
+    for attr, value in payload.dict().items():
+        setattr(billing, attr, value)
+    billing.save()
+    return BillingAddressIn(
+        first_name=billing.first_name,
+        last_name=billing.last_name,
+        company=billing.company,
+        address_1=billing.address_1,
+        address_2=billing.address_2,
+        state=billing.state,
+        city=billing.city,
+        postcode=billing.postcode,
+        phone=billing.phone,
+        email=billing.email,
+        country=billing.country,
+    )
+
+@api.delete("/billing/{billing_id}/", response={204: None}, tags=["Billing address"])
+def delete_billing(request, billing_id: int):
+    billing = get_object_or_404(BillingAddress, id=billing_id)
+    billing.delete()
+    return {"message": "Billing deleted successfully"}
+
+@api.get("/billing/{billing_id}/", response=BillingAddressIn, tags=["Billing address"])
+def read_billing(request, billing_id: int):
+    billing = get_object_or_404(BillingAddress, id=billing_id)
+    return BillingAddressIn(
+        first_name=billing.first_name,
+        last_name=billing.last_name,
+        company=billing.company,
+        address_1=billing.address_1,
+        address_2=billing.address_2,
+        state=billing.state,
+        city=billing.city,
+        postcode=billing.postcode,
+        phone=billing.phone,
+        email=billing.email,
+        country=billing.country,
+    )
+
+#Shipping Address :
+
+@api.post("/shipping/",response=ShippingAddressIn,tags=["Shipping Address"])
+def create_shipping_address(request , payload:ShippingAddressIn):
+    try:
+            shipping=ShippingAddress.objects.create(
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+                company=payload.company,
+                address_1=payload.address_1,
+                address_2=payload.address_2,
+                state=payload.state,
+                postcode=payload.postcode,
+                country=payload.country,
+                city=payload.city,
+            )
+            return ShippingAddressIn(
+                first_name=shipping.first_name,
+                last_name=shipping.last_name,
+                company=shipping.company,
+                address_1=shipping.address_1,
+                address_2=shipping.address_2,
+                state=shipping.state,
+                city=shipping.city,
+                postcode=shipping.postcode,
+                country=shipping.country,
+            )
+    except Exception as e:
+        return handle_exception(e)
+
+
+@api.put("/shipping/{shipping_id}/", response=ShippingAddressIn, tags=["Shipping Address"])
+def update_shipping(request, shipping_id: int, payload: ShippingAddressIn):
+    shipping = get_object_or_404(ShippingAddress, id=shipping_id)
+    for attr, value in payload.dict().items():
+        setattr(shipping, attr, value)
+    shipping.save()
+    return ShippingAddressIn(
+                first_name=shipping.first_name,
+                last_name=shipping.last_name,
+                company=shipping.company,
+                address_1=shipping.address_1,
+                address_2=shipping.address_2,
+                state=shipping.state,
+                city=shipping.city,
+                postcode=shipping.postcode,
+                country=shipping.country,
+            )
+
+@api.delete("/shipping/{shipping_id}/", response={204: None}, tags=["Shipping Address"])
+def delete_billing(request, shipping_id: int):
+    shipping = get_object_or_404(ShippingAddress, id=shipping_id)
+    shipping.delete()
+    return {"message": "Shipping deleted successfully"}
+
+@api.get("/shipping/{shipping_id}/", response=ShippingAddressIn, tags=["Shipping Address"])
+def read_shipping(request, shipping_id: int):
+    shipping = get_object_or_404(ShippingAddress, id=shipping_id)
+    return ShippingAddressIn(
+                first_name=shipping.first_name,
+                last_name=shipping.last_name,
+                company=shipping.company,
+                address_1=shipping.address_1,
+                address_2=shipping.address_2,
+                state=shipping.state,
+                city=shipping.city,
+                postcode=shipping.postcode,
+                country=shipping.country,
+            )
+
+#Customer:
+
+@api.post("/customers/", response=CustomerIn, tags=["Customers"])
+def create_customer(request, payload: CustomerIn):
+    try:
+        with transaction.atomic():
+            billing_address = BillingAddress.objects.get(id=payload.customerbiling_id)
+            
+            shipping_address = ShippingAddress.objects.get(id=payload.customershipping_id)
+
+            customer = Customer.objects.create(
+                email=payload.email,
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+                role=payload.role,
+                username=payload.username,
+                password=payload.password,
+                is_paying_customer=payload.is_paying_customer,
+                avatar_url=payload.avatar_url,
+                customerbiling_id=billing_address,
+                customershipping_id=shipping_address
+            )
+            woocommerce_id = create_woocommerce_customer(customer.first_name, customer.email)
+            if woocommerce_id:
+                customer.woocommerce_id = woocommerce_id
+                customer.save(update_fields=['woocommerce_id'])  
+
+            logger.info(f"Successfully created WooCommerce customer '{customer.email}' with ID {woocommerce_id}")
+            return JsonResponse({
+                    'email': customer.email,
+                    'first_name': customer.first_name,
+                    'last_name': customer.last_name,
+                    'role': customer.role,
+                    'username': customer.username,
+                    'is_paying_customer': customer.is_paying_customer,
+                    'avatar_url': customer.avatar_url,
+                    'customerbiling_id': customer.customerbiling_id.id,
+                    'customershipping_id': customer.customershipping_id.id,
+                    'woocommerce_id': customer.woocommerce_id,
+                    }, status=201)
+    except Exception as e:
+        return JsonResponse({
+            'error': f"Error creating customer: {str(e)}"
+        }, status=500)
+    
+@api.get("/customers/{customer_id}/", response=CustomerOut, tags=["Customers"])
+def read_customer(request, customer_id: int):
+    try:
+        customer = Customer.objects.get(id=customer_id)
+        return JsonResponse({
+            'id': customer.id,
+            'email': customer.email,
+            'first_name': customer.first_name,
+            'last_name': customer.last_name,
+            'role': customer.role,
+            'username': customer.username,
+            'is_paying_customer': customer.is_paying_customer,
+            'avatar_url': customer.avatar_url,
+            'customer_billing_id': customer.customerbiling_id.id if customer.customerbiling_id else None,
+            'customer_shipping_id': customer.customershipping_id.id if customer.customershipping_id else None,
+            'woocommerce_id': customer.woocommerce_id,
+        })
+    except Customer.DoesNotExist:
+        return JsonResponse({'error': 'Customer not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@api.get("/customers/", response=List[CustomerOut], tags=["Customers"])
+def list_customers(request):
+    try:
+        customers = Customer.objects.all()
+        customer_list = []
+        for customer in customers:
+            customer_list.append({
+                'id': customer.id,
+                'email': customer.email,
+                'first_name': customer.first_name,
+                'last_name': customer.last_name,
+                'role': customer.role,
+                'username': customer.username,
+                'is_paying_customer': customer.is_paying_customer,
+                'avatar_url': customer.avatar_url,
+            'customer_billing_id': customer.customerbiling_id.id if customer.customerbiling_id else None,
+            'customer_shipping_id': customer.customershipping_id.id if customer.customershipping_id else None,
+                'woocommerce_id': customer.woocommerce_id,
+            })
+        return JsonResponse(customer_list, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@api.put("/customers/{customer_id}/", response=CustomerOut, tags=["Customers"])
+def update_customer(request, customer_id: int, payload: CustomerIn):
+    try:
+        customer = Customer.objects.get(id=customer_id)
+
+        customer.email = payload.email
+        customer.first_name = payload.first_name
+        customer.last_name = payload.last_name
+        customer.role = payload.role
+        customer.username = payload.username
+        customer.password = payload.password
+        customer.is_paying_customer = payload.is_paying_customer
+        customer.avatar_url = payload.avatar_url
+        
+        if payload.customerbiling_id:
+            billing_address = BillingAddress.objects.get(id=payload.customerbiling_id)
+            customer.customerbiling_id = billing_address
+
+
+        if payload.customershipping_id:
+            shipping_address = ShippingAddress.objects.get(id=payload.customershipping_id)
+            customer.customershipping_id = shipping_address
+
+        customer.save()
+
+        if customer.woocommerce_id:
+            success = update_woocommerce_customer(customer.woocommerce_id, payload.first_name ,payload.email)
+            if success:
+                print(f"Successfully updated WooCommerce customer '{customer.email}'")
+            else:
+                print(f"Failed to update WooCommerce customer '{customer.email}'")
+
+        return CustomerOut(
+            id=customer.id,
+            email=customer.email,
+            first_name=customer.first_name,
+            last_name=customer.last_name,
+            role=customer.role,
+            username=customer.username,
+            is_paying_customer=customer.is_paying_customer,
+            avatar_url=customer.avatar_url,
+            customerbiling_id=customer.customerbiling_id.id if customer.customerbiling_id else None,
+            customershipping_id=customer.customershipping_id.id if customer.customershipping_id else None,
+            woocommerce_id=customer.woocommerce_id,
+        )
+    except Customer.DoesNotExist:
+        return JsonResponse({'error': 'Customer not found'}, status=404)
+    except BillingAddress.DoesNotExist:
+        return JsonResponse({'error': 'Billing Address not found'}, status=404)
+    except ShippingAddress.DoesNotExist:
+        return JsonResponse({'error': 'Shipping Address not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@api.get("/customers/{first_name}/{last_name}/", response=CustomerOut, tags=["Customers"])
+def search_customer_by_name(request, first_name: str, last_name: str):
+    try:
+        customers = Customer.objects.filter(first_name__icontains=first_name, last_name__icontains=last_name)
+        
+        if not customers.exists():
+            return JsonResponse({'error': 'No customers found matching the provided criteria'}, status=404)
+        
+        customer_data = []
+        for customer in customers:
+            customer_data.append({
+                'id': customer.id,
+                'email': customer.email,
+                'first_name': customer.first_name,
+                'last_name': customer.last_name,
+                'role': customer.role,
+                'username': customer.username,
+                'is_paying_customer': customer.is_paying_customer,
+                'avatar_url': customer.avatar_url,
+                'customer_billing_id': customer.customerbiling_id.id if customer.customerbiling_id else None,
+                'customer_shipping_id': customer.customershipping_id.id if customer.customershipping_id else None,
+                'woocommerce_id': customer.woocommerce_id,
+            })
+        
+        return JsonResponse(customer_data, safe=False)
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@api.delete("/customers/{customer_id}/", tags=["Customers"])
+def delete_customer(request, customer_id: int):
+    try:
+        customer = get_object_or_404(Customer, id=customer_id)
+        customer.delete()
+        return JsonResponse({'message': f'Customer with ID {customer_id} deleted successfully'})
+    except Customer.DoesNotExist:
+        return JsonResponse({'error': 'Customer not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@api.put("/customer/change-password", response={200: str},tags=["Customers"])
+def change_password(request, username: str,payload:Newpassword):
+    customer = get_object_or_404(Customer, username=username)
+    customer.password=payload.password
+    customer.save()
+    return JsonResponse({'message': f'Password changed successfully'})
+
+
+#Order:
+
+@api.post("/orders/", response=OrderIn, tags=["Orders"])
+def create_order(request, payload: OrderIn):
+    try:
+        with transaction.atomic():
+            billing_address = BillingAddress.objects.get(id=payload.customerbiling_id)
+            shipping_address = ShippingAddress.objects.get(id=payload.customershipping_id)
+            customer = Customer.objects.get(id=payload.customer_id)
+
+            order = Order.objects.create(
+                parent_id=payload.parent_id,
+                number=payload.number,
+                order_key=payload.order_key,
+                created_via=payload.created_via,
+                version=payload.version,
+                status=payload.status,
+                currency=payload.currency,
+                discount_total=payload.discount_total,
+                discount_tax=payload.discount_tax,
+                shipping_total=payload.shipping_total,
+                shipping_tax=payload.shipping_tax,
+                cart_tax=payload.cart_tax,
+                total=payload.total,
+                total_tax=payload.total_tax,
+                prices_include_tax=payload.prices_include_tax,
+                payment_method=payload.payment_method,
+                date_paid=payload.date_paid,
+                date_completed=payload.date_completed,
+                cart_hash=payload.cart_hash,
+                set_paid=payload.set_paid,
+                woocommerce_id=payload.woocommerce_id,
+                customer_id=customer,
+                customerbiling_id=billing_address,
+                customershipping_id=shipping_address,
+            )
+
+            
+            woocommerce_id = create_woocommerce_order(order.number,order.status,order.total)
+            if woocommerce_id:
+                order.woocommerce_id = woocommerce_id
+                order.save(update_fields=['woocommerce_id'])
+
+            return JsonResponse(payload.dict(), status=201)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Error creating order: {str(e)}"}, status=500)
+    
+@api.put("/orders/{id}/", response=OrderIn, tags=["Orders"])
+def update_order(request, id: int, payload: OrderIn):
+    try:
+        with transaction.atomic():
+            order = get_object_or_404(Order, id=id)
+
+            order.parent_id = payload.parent_id
+            order.number = payload.number
+            order.order_key = payload.order_key
+            order.created_via = payload.created_via
+            order.version = payload.version
+            order.status = payload.status
+            order.currency = payload.currency
+            order.discount_total = payload.discount_total
+            order.discount_tax = payload.discount_tax
+            order.shipping_total = payload.shipping_total
+            order.shipping_tax = payload.shipping_tax
+            order.cart_tax = payload.cart_tax
+            order.total = payload.total
+            order.total_tax = payload.total_tax
+            order.prices_include_tax = payload.prices_include_tax
+            order.payment_method = payload.payment_method
+            order.date_paid = payload.date_paid
+            order.date_completed = payload.date_completed
+            order.cart_hash = payload.cart_hash
+            order.set_paid = payload.set_paid
+            order.woocommerce_id = payload.woocommerce_id
+            
+            try:
+                billing_address = BillingAddress.objects.get(id=payload.customerbiling_id)
+                shipping_address = ShippingAddress.objects.get(id=payload.customershipping_id)
+                customer = Customer.objects.get(id=payload.customer_id)
+
+                order.customer_id = customer
+                order.customerbiling_id = billing_address
+                order.customershipping_id = shipping_address
+
+            except Customer.DoesNotExist as e:
+                return JsonResponse({"error": f"Customer matching query does not exist: {e}"}, status=404)
+            except (BillingAddress.DoesNotExist, ShippingAddress.DoesNotExist) as e:
+                return JsonResponse({"error": f"Related address matching query does not exist: {e}"}, status=404)
+
+            order.save()
+
+     
+            update_woocommerce_order(order.id, order.number)
+
+            return JsonResponse(payload.dict(), status=200)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Error updating order: {str(e)}"}, status=500)
+
+@api.delete("/orders/{id}/", tags=["Orders"])
+def delete_order(request, id: int):
+    try:
+        with transaction.atomic():
+            order = get_object_or_404(Order, id=id)
+
+            # Delete from WooCommerce first if WooCommerce ID exists
+            if order.woocommerce_id:
+                if not delete_woocommerce_order(order.woocommerce_id):
+                    return JsonResponse({"error": "Failed to delete order from WooCommerce"}, status=500)
+
+            order.delete()
+            return JsonResponse({"message": "Order deleted successfully"}, status=204)
+
+    except Order.DoesNotExist:
+        return JsonResponse({"error": "Order not found"}, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Error deleting order: {str(e)}"}, status=500)
+
+@api.get("/orders/{id}/", response=OrderOut, tags=["Orders"])
+def read_order(request, id: int):
+    try:
+        order = Order.objects.get(id=id)
+        return OrderOut(
+            id=order.id,
+            parent_id=order.parent_id,
+            number=order.number,
+            order_key=order.order_key,
+            created_via=order.created_via,
+            version=order.version,
+            status=order.status,
+            currency=order.currency,
+            discount_total=order.discount_total,
+            discount_tax=order.discount_tax,
+            shipping_total=order.shipping_total,
+            shipping_tax=order.shipping_tax,
+            cart_tax=order.cart_tax,
+            total=order.total,
+            total_tax=order.total_tax,
+            prices_include_tax=order.prices_include_tax,
+            payment_method=order.payment_method,
+            date_paid=order.date_paid.strftime('%Y-%m-%dT%H:%M:%S') if order.date_paid else None,
+            date_completed=order.date_completed.strftime('%Y-%m-%dT%H:%M:%S') if order.date_completed else None,
+            cart_hash=order.cart_hash,
+            set_paid=order.set_paid,
+            woocommerce_id=order.woocommerce_id,
+            customer_id=order.customer_id.id if order.customer_id else None,
+            customerbiling_id=order.customerbiling_id.id if order.customerbiling_id else None,
+            customershipping_id=order.customershipping_id.id if order.customershipping_id else None,
+        ).dict()
+    except Order.DoesNotExist:
+        return JsonResponse({'error': 'Order not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api.get("/orders/", response=List[OrderOut], tags=["Orders"])
+def list_orders(request):
+    orders = Order.objects.all()
+    order_list=[]
+    for order in orders:
+        order_list.append(OrderOut(
+            id=order.id,
+            parent_id=order.parent_id,
+            number=order.number,
+            order_key=order.order_key,
+            created_via=order.created_via,
+            version=order.version,
+            status=order.status,
+            currency=order.currency,
+            discount_total=order.discount_total,
+            discount_tax=order.discount_tax,
+            shipping_total=order.shipping_total,
+            shipping_tax=order.shipping_tax,
+            cart_tax=order.cart_tax,
+            total=order.total,
+            total_tax=order.total_tax,
+            prices_include_tax=order.prices_include_tax,
+            payment_method=order.payment_method,
+            date_paid=order.date_paid.strftime('%Y-%m-%dT%H:%M:%S')
+            if order.date_paid else None,
+            date_completed=order.date_completed.strftime('%Y-%m-%dT%H:%M:%S')
+            if order.date_completed else None,
+            cart_hash=order.cart_hash,
+            set_paid=order.set_paid,
+            woocommerce_id=order.woocommerce_id,
+            customer_id=order.customer_id.id if order.customer_id else None,
+            customerbiling_id=order.customerbiling_id.id if order.customerbiling_id else None,
+            customershipping_id=order.customershipping_id.id if order.customershipping_id else None,
+            ).dict())
+        return JsonResponse(order_list, safe=False)
+    
+@api.get("/order/{order_number}", response=OrderOut, tags=["Orders"])
+def search_order_by_number(request, order_number: str):
+    order = get_object_or_404(Order, number=order_number)
+    
+    order_data = {
+        'id': order.id,
+        'parent_id': order.parent_id,
+        'number': order.number,
+        'order_key': order.order_key,
+        'created_via': order.created_via,
+        'version': order.version,
+        'status': order.status,
+        'currency': order.currency,
+        'discount_total': order.discount_total,
+        'discount_tax': order.discount_tax,
+        'shipping_total': order.shipping_total,
+        'shipping_tax': order.shipping_tax,
+        'cart_tax': order.cart_tax,
+        'total': order.total,
+        'total_tax': order.total_tax,
+        'prices_include_tax': order.prices_include_tax,
+        'payment_method': order.payment_method,
+        'date_paid': convert_datetime_to_string(order.date_paid),
+        'date_completed': convert_datetime_to_string(order.date_completed),
+        'cart_hash': order.cart_hash,
+        'set_paid': order.set_paid,
+        'woocommerce_id': order.woocommerce_id,
+        'customer_id': order.customer_id.id,
+        'customerbiling_id': order.customerbiling_id.id,
+        'customershipping_id': order.customershipping_id.id
+    }
+    
+    return OrderOut(**order_data)
+
+@api.get("/customer/{customer_id}/orders", response=List[OrderOut], tags=["Orders"])
+def get_customer_order_history(request, customer_id: int):
+    customer = get_object_or_404(Customer, id=customer_id)
+    orders = Order.objects.filter(customer_id=customer.id)
+    
+    order_list = []
+    for order in orders:
+        order_data = {
+            'id': order.id,
+            'parent_id': order.parent_id,
+            'number': order.number,
+            'order_key': order.order_key,
+            'created_via': order.created_via,
+            'version': order.version,
+            'status': order.status,
+            'currency': order.currency,
+            'discount_total': order.discount_total,
+            'discount_tax': order.discount_tax,
+            'shipping_total': order.shipping_total,
+            'shipping_tax': order.shipping_tax,
+            'cart_tax': order.cart_tax,
+            'total': order.total,
+            'total_tax': order.total_tax,
+            'prices_include_tax': order.prices_include_tax,
+            'payment_method': order.payment_method,
+            'date_paid': convert_datetime_to_string(order.date_paid),
+            'date_completed': convert_datetime_to_string(order.date_completed),
+            'cart_hash': order.cart_hash,
+            'set_paid': order.set_paid,
+            'woocommerce_id': order.woocommerce_id,
+            'customer_id': order.customer_id.id,
+            'customerbiling_id': order.customerbiling_id.id,
+            'customershipping_id': order.customershipping_id.id
+        }
+        order_list.append(OrderOut(**order_data))
+    
+    return order_list

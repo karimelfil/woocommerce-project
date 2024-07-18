@@ -337,3 +337,149 @@ class ErrorResponse(Schema):
 
 class PriceUpdateSchema(Schema):
     new_price: float
+
+
+#######################################################################################
+
+
+class BillingAddressIn(BaseModel):
+    first_name: str
+    last_name: str
+    company: Optional[str] = None
+    address_1: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    postcode: str
+    country: str
+    email: str
+    phone: str
+
+class BillingAddressOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    company: Optional[str] = None
+    address_1: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    postcode: str
+    country: str
+    email: str
+    phone: str
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}, {self.address_1}, {self.city}"
+
+class ShippingAddressIn(BaseModel):
+    first_name: str
+    last_name: str
+    company: Optional[str] = None
+    address_1: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    postcode: str
+    country: str
+
+class ShippingAddressOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    company: Optional[str] = None
+    address_1: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    postcode: str
+    country: str
+
+class CustomerIn(BaseModel):
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: str
+    username: str
+    password: str
+    is_paying_customer: Optional[bool] = True
+    avatar_url: Optional[str] = None
+    customerbiling_id: int
+    customershipping_id: int
+    woocommerce_id: int
+
+
+class CustomerOut(BaseModel):
+    id: int
+    email: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: str
+    username: str
+    is_paying_customer: bool
+    avatar_url: Optional[str] = None
+    customerbiling_id: int
+    customershipping_id: int
+    woocommerce_id: int
+
+class Newpassword(BaseModel):
+    password: str
+
+class OrderIn(BaseModel):
+    parent_id: Optional[int]
+    number: str
+    order_key: str
+    created_via: str
+    version: str
+    status: str
+    currency: str
+    discount_total: float
+    discount_tax: float
+    shipping_total: float
+    shipping_tax: float
+    cart_tax: float
+    total: float
+    total_tax: float
+    prices_include_tax: Optional[bool]=True
+    payment_method: str
+    date_paid: Optional[str]
+    date_completed: Optional[str]
+    cart_hash: str
+    set_paid: Optional[bool]=True
+    woocommerce_id: int
+    customer_id: int
+    customerbiling_id: int
+    customershipping_id: int
+
+    class Config:
+        from_attributes = True
+
+class OrderOut(BaseModel):
+    id: int
+    parent_id: Optional[int]
+    number: str
+    order_key: str
+    created_via: str
+    version: str
+    status: str
+    currency: str
+    discount_total: float
+    discount_tax: float
+    shipping_total: float
+    shipping_tax: float
+    cart_tax: float
+    total: float
+    total_tax: float
+    prices_include_tax: bool
+    payment_method: str
+    date_paid: Optional[str]
+    date_completed: Optional[str]
+    cart_hash: str
+    set_paid: Optional[bool]
+    woocommerce_id: int
+    customer_id: int
+    customerbiling_id: int
+    customershipping_id: int
+
+    class Config:
+        from_attributes = True
