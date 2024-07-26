@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field , EmailStr
 from datetime import datetime, time
 from typing import List, Optional
 from ninja import Schema
+from decimal import Decimal
 
 class ActivityIn(BaseModel):
     date_created: datetime
@@ -15,10 +16,10 @@ class ActivityOut(BaseModel):
 
 class ItemCategoryIn(BaseModel):
     name: str
-    image: str
-    path : str
-    parent :Optional[int] = None
-    woocommerce_id :int
+    image: Optional[str] = None
+    path: str
+    parent: Optional[int] = None
+    woocommerce_id: Optional[int] = None
 
 class ItemCategoryOut(BaseModel):
     name: str
@@ -29,7 +30,7 @@ class ItemCategoryOut(BaseModel):
    
 class ItemFamilyIn(BaseModel):
     name: str
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class ItemFamilyOut(BaseModel):
     name: str
@@ -45,7 +46,7 @@ class ItemBrandOut(BaseModel):
 
 class SpecsIn(BaseModel):
     description: str
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class SpecsOut(BaseModel):
     description: str
@@ -55,7 +56,7 @@ class UnitOfMeasurementIn(BaseModel):
     name: str
     code: str
     type: List[str]
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class UnitOfMeasurementOut(BaseModel):
     name: str
@@ -65,7 +66,7 @@ class UnitOfMeasurementOut(BaseModel):
 
 class TagsIn(BaseModel):
     name: str
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class TagsOut(BaseModel):
     name: str
@@ -89,7 +90,7 @@ class PackageOut(BaseModel):
 
 class VariationsHeaderIn(BaseModel):
     attribute: str
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class VariationsHeaderOut(BaseModel):
     attribute: str
@@ -98,7 +99,7 @@ class VariationsHeaderOut(BaseModel):
 class VariationsDetailIn(BaseModel):
     variation_id: int  
     value: str
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class VariationsDetailOut(BaseModel):
     variation_id: int  
@@ -157,7 +158,7 @@ class ItemIn(BaseModel):
     price: float = 0.0
     regular_price: float = 0.0
     sales_price: float = 0.0
-    woocommerce_id :int
+    woocommerce_id: Optional[int] = None
 
 class ItemCreate(BaseModel):
     name: str
@@ -338,10 +339,6 @@ class ErrorResponse(Schema):
 class PriceUpdateSchema(Schema):
     new_price: float
 
-
-#######################################################################################
-
-
 class BillingAddressIn(BaseModel):
     first_name: str
     last_name: str
@@ -396,7 +393,7 @@ class ShippingAddressOut(BaseModel):
     country: str
 
 class CustomerIn(BaseModel):
-    email: str
+    email: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     role: str
@@ -407,7 +404,6 @@ class CustomerIn(BaseModel):
     customerbiling_id: int
     customershipping_id: int
     woocommerce_id: int
-
 
 class CustomerOut(BaseModel):
     id: int
@@ -483,3 +479,50 @@ class OrderOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ItemCreatee(BaseModel):
+    name: str
+    active: bool
+    status: str
+    description: str
+    role: str
+    sku_code: str
+    barcode_type: str
+    barcode: str
+    type: str
+    usage: Optional[str] = None
+    is_variant: bool
+    tracking_stock_by_variant: bool
+    returnable_item: bool
+    width: Optional[float] = None
+    height: Optional[float] = None
+    length: Optional[float] = None
+    weight: Optional[float] = None
+    available_in_pos: bool
+    shelf_life: str
+    end_of_life: str
+    allow_sales: bool
+    max_discount_sales: Optional[Decimal] = None
+    default_selling_price: Optional[Decimal] = None
+    default_selling_price_usd: Optional[Decimal] = None
+    default_cost: Optional[Decimal] = None
+    default_cost_usd: Optional[Decimal] = None
+    lead_time: str
+    minimum_quantity_order: Optional[float] = None
+    minimum_quantity_in_stock: Optional[float] = None
+    warranty_period: str
+    allow_negative_stock: bool
+    auto_reorder: bool
+    variant_of: Optional[int] = None
+    price: Decimal
+    regular_price: Decimal
+    sales_price: Decimal
+    woocommerce_id: Optional[int] = None
+    tags: List[int]
+    family_id: Optional[int] = None
+    brand_id: Optional[int] = None
+    category_id: Optional[int] = None
+    specs_id: List[int]
+    variations: List[int]
+    selected_variations: List[int]
+    alternative_items: List[int]

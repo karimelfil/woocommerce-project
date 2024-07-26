@@ -2098,8 +2098,6 @@ def list_warehouses(request):
     return warehouse_data
 
 
-###############################################################################
-
 #Billing address:
 @api.post("/billing/",response=BillingAddressIn,tags=["Billing address"])
 def create_billing_address(request , payload:BillingAddressIn):
@@ -2205,7 +2203,6 @@ def create_shipping_address(request , payload:ShippingAddressIn):
             )
     except Exception as e:
         return handle_exception(e)
-
 
 @api.put("/shipping/{shipping_id}/", response=ShippingAddressIn, tags=["Shipping Address"])
 def update_shipping(request, shipping_id: int, payload: ShippingAddressIn):
@@ -2436,7 +2433,6 @@ def change_password(request, username: str,payload:Newpassword):
     customer.password=payload.password
     customer.save()
     return JsonResponse({'message': f'Password changed successfully'})
-
 
 #Order:
 
@@ -2702,3 +2698,13 @@ def get_customer_order_history(request, customer_id: int):
         order_list.append(OrderOut(**order_data))
     
     return order_list
+
+def get_order_statuses_by_customer(customer_id: int) -> List[dict[str, str]]:
+    orders = Order.objects.filter(customer_id=customer_id)
+    statuses = [{"status": order.status} for order in orders]
+    return statuses
+
+@api.get("/orders/status/{customer_id}", response=List[dict[str, str]], tags=["Orders"])
+def order_statuses(request, customer_id: int):
+    statuses = get_order_statuses_by_customer(customer_id)
+    return statuses
